@@ -1,198 +1,126 @@
-# Revenue Intelligence Inbox Revenue Intelligence Inbox
+# Revenue Intelligence Inbox
 
-A Streamlit application that ingests sales call and meeting records, classifies them into routing categories, and provides a manager with an evidence-based daily brief.
+A modern enterprise SaaS dashboard for sales leaders and revenue managers. Ingests calls and Google Meet sessions, classifies them into an 8-category routing taxonomy, surfaces evidence-backed churn and revenue findings, and synchronizes live with **Supabase Cloud**.
 
-## Quick Start
+---
+
+## 🚀 Live Cloud Deployment (Render)
+
+When deploying this project as a **Web Service** on **[Render](https://render.com/)**, use the following configuration:
+
+### 1. Render Build & Start Commands
+
+| Setting | Value |
+|---|---|
+| **Environment** | `Python 3` |
+| **Region** | Oregon (US West) or closest to your database |
+| **Branch** | `main` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true` |
+
+### 2. Environment Variables on Render
+Under the **Environment** tab in your Render dashboard, add:
+
+| Key | Value | Purpose |
+|---|---|---|
+| `PYTHON_VERSION` | `3.11.9` | Ensures modern Python 3.11+ runtime |
+| `SUPABASE_URL` | `https://thamyuugypckgmkqkdjz.supabase.co` | Live Supabase cloud database URL |
+| `SUPABASE_KEY` | *(your Supabase anon/service key)* | Authenticates live database sync |
+
+---
+
+## ☁️ Streamlit Community Cloud Deployment
+
+1. Push your repository to GitHub: `https://github.com/Aravindh-2006/volopay-revenue-inbox.git`.
+2. Go to **[share.streamlit.io](https://share.streamlit.io)** and click **New App**.
+3. Select your repository, branch (`main`), and main file path (`app.py`).
+4. In **Advanced Settings** → **Secrets**, add your Supabase credentials:
+   ```toml
+   [supabase]
+   url = "https://thamyuugypckgmkqkdjz.supabase.co"
+   key = "your-supabase-key"
+   ```
+5. Click **Deploy**.
+
+---
+
+## 💻 Local Quick Start
 
 ### 1. Install dependencies
-
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Run the application
-
 ```bash
 streamlit run app.py
 ```
+Open **[http://localhost:8501](http://localhost:8501)** in your browser.
 
-The app will open in your browser at `http://localhost:8501`.
-
-### 3. Run tests
-
+### 3. Run automated test suite
 ```bash
 pytest tests.py -v
 ```
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
-```
+```text
 volopay-revenue-inbox/
+├── .streamlit/
+│   ├── config.toml         # Theme settings (Light SaaS theme, indigo primary)
+│   └── secrets.toml        # Supabase URL & Key (protected from Git)
 ├── data/
 │   ├── 01_initial.json     # Initial batch (44 records, revision 1)
-│   └── 02_update.json      # Update batch (M07 transcript, revision 2)
-├── app.py                  # Main Streamlit application
-├── db.py                   # SQLite database module (schema, import, queries)
-├── routing.py              # Routing taxonomy and automated classification
-├── findings.py             # Evidence-backed findings and manager brief
-├── exports.py              # ZIP export and manifest generation
-├── tests.py                # Automated pytest tests
-├── requirements.txt        # Python dependencies
-├── README.md               # This file
-└── inbox.db                # SQLite database (created at runtime)
+│   └── 02_update.json      # Update batch (M07 transcript update, revision 2)
+├── app.py                  # Main Streamlit web application
+├── db.py                   # SQLite + Supabase cloud synchronization layer
+├── routing.py              # Rule-based 8-category routing classification
+├── findings.py             # Evidence-backed findings & manager brief generator
+├── exports.py              # Manifest generation and ZIP archive exporter
+├── styles.py               # Enterprise SaaS design system, CSS & widgets
+├── tests.py                # 19 automated pytest tests
+├── requirements.txt        # Production dependencies (streamlit, supabase, plotly, pandas)
+└── README.md               # Project documentation
 ```
 
 ---
 
-## How It Works
+## ⚙️ Architecture & Features
 
-### Data Model
+### Dual Database Backend (SQLite + Supabase Cloud)
+- **Primary / Cloud**: Live sync to **Supabase PostgreSQL** (`source_records`, `automated_routes`, `manual_overrides`, `import_log`).
+- **Local Fallback**: Embedded SQLite (`inbox.db`) with Write-Ahead Logging (WAL) for offline testing and local demo execution.
+- **Composite Key**: Records use `(source_type, source_id)` to prevent collisions between calls and meetings.
 
-The application uses `(source_type, source_id)` as the unique key for each record. Records come in two types:
-- **Calls** — outbound/inbound phone calls with optional inline transcript text
-- **Meetings** — Google Meet sessions with optional structured transcript turns
+### Routing Taxonomy (8 Categories)
+1. **New Prospect Outreach** — Cold outreach to potential customers
+2. **Follow-Up / Nurture** — Continued conversation with interested leads
+3. **Partnership / Channel** — Referral partnerships and channel arrangements
+4. **Existing Customer Management** — Support, onboarding, migration for current customers
+5. **Vendor / Supplier Evaluation** — Evaluating external vendors/suppliers
+6. **Internal / Training** — Internal operational meetings and training sessions
+7. **No Conversation** — Voicemails, unresponsive attempts, very short calls
+8. **Unclassified** — Insufficient information; flagged for human manager triage
 
-### Pages
+### Human-in-the-Loop Override Persistence
+- Automated route suggestions are generated with explanatory reasons.
+- Managers can override classifications from the **Routing & Review** triage queue.
+- Overrides persist across batch re-imports, newer revision updates, and app restarts.
 
-| Page | Purpose |
-|------|---------|
-| **Dashboard** | KPI metrics: record counts, transcript coverage, routing distribution, activity by person. Includes source-type and person filters. |
-| **Inbox** | Table of all source records showing ref, type, revision, transcript status, routes, review state, and analysis freshness. Click a record to see full details and correct routes. |
-| **Replay Panel** | Step-by-step import controls. Import initial batch, repeat import (test deduplication), import update batch, inspect M07, reset database. |
-| **Findings & Brief** | Three evidence-backed findings with exact quotes and source references, plus a manager brief for 21 August 2026. |
-| **Exports** | Preview and download the manifest (JSON/CSV) and a full ZIP archive containing per-record output files, findings, and the manager brief. |
-
-### Import & Deduplication
-
-- First import inserts all 44 records.
-- Repeat imports of the same batch skip all records (no duplicates).
-- The update batch (revision 2) replaces M07's payload and transcript without creating a duplicate.
-
-### Revision Handling
-
-- Only a **newer** revision replaces an existing record.
-- When updated, `review_state` → `stale` and `analysis_fresh` → `0`.
-- Old analysis is never presented as current.
-
-### Routing
-
-Eight-category taxonomy:
-
-| Route | Description |
-|-------|-------------|
-| New Prospect Outreach | Cold outreach to potential customers |
-| Follow-Up / Nurture | Continued conversation with interested leads |
-| Partnership / Channel | Referral partnerships and channel arrangements |
-| Existing Customer Management | Support, onboarding, migration for current customers |
-| Vendor / Supplier Evaluation | Revenue Intelligence Inbox evaluating external vendors |
-| Internal / Training | Internal meetings and training sessions |
-| No Conversation | Voicemail, unresponsive, very short calls |
-| Unclassified | Insufficient information; needs manual review |
-
-- **Automated suggestions** are generated from metadata and transcript keywords.
-- **Manual overrides** are set by a manager and persist across imports, revisions, and app restarts.
-- Each route includes a reason explaining the classification.
-
-### Persistence (SQLite)
-
-All data is stored in `inbox.db`:
-- Source records with extracted metadata
-- Automated route suggestions
-- Manual route overrides (survive everything except explicit reset)
-- Review states and analysis freshness
-- Import history log
-
-### Findings
-
-Three evidence-backed findings are generated from actual transcript passages:
-1. Partnership negotiation with Harborpath Advisory (M01)
-2. Card migration churn risk with Cedarwave Distribution (M04)
-3. Low outbound campaign connect rate (B01–B20)
-
-Each finding includes exact quotes, source references, and clearly labelled uncertainty.
-
-### Manager Brief
-
-A fixed brief for **21 August 2026** (Asia/Kolkata timezone) summarising activity, key findings, and items requiring attention. Based only on supplied data.
-
-### Exports
-
-The ZIP archive contains:
-- `manifest.json` / `manifest.csv` — all records with routes, states, override flags
-- `output/<route>/<record_ref>.json` — per-record structured output
-- `findings.json` — the three findings
-- `manager_brief.md` — the formatted brief
+### Evidence-Backed Findings
+1. **Harborpath Advisory (M01)**: Active partnership and commercial referral negotiations.
+2. **Cedarwave Distribution (M04)**: High churn risk regarding prepaid card migration.
+3. **Outbound Campaign Efficiency (B01–B20)**: Low connect rate analysis across cold outreach calls.
 
 ---
 
-## Replay Test Steps
+## 🧪 Replay Verification Steps
 
-1. Open the **Replay Panel** page.
-2. Click **Import 01_initial.json** → should show 44 inserted, 0 skipped.
-3. Click **Import 01_initial.json** again → should show 0 inserted, 44 skipped. Record count stays 44.
-4. Go to **Inbox** → select record C01 → set route override to "Partnership / Channel" → click Apply Override.
-5. Return to **Replay Panel** → click **Import 02_update.json** → should show 1 updated, 0 skipped.
-6. Check M07 Inspection section → should show ✅ transcript with actual turns.
-7. Verify record count is still 44.
-8. Go to **Inbox** → check C01 → override should still be "Partnership / Channel".
-9. Go to **Exports** → download ZIP and verify manifest contents.
-
----
-
-## Metric Definitions
-
-| Metric | Definition |
-|--------|------------|
-| Total Records | Count of unique `(source_type, source_id)` pairs in the database |
-| Calls | Records where `source_type = 'call'` |
-| Meetings | Records where `source_type = 'meeting'` |
-| With Transcript | Records with usable transcript text (calls with non-null transcript field, meetings with non-empty turns and no unavailable_reason) |
-| Transcript Coverage | `With Transcript / Total Records` |
-| Fresh Analysis | Records where `analysis_fresh = 1` (not stale after updates) |
-| Manual Override | Records with an active `route_overrides` entry |
-
----
-
-## Output Locations
-
-| File | Location |
-|------|----------|
-| SQLite database | `inbox.db` (project root, created at runtime) |
-| Exported ZIP | Downloaded via the Exports page |
-| Data files | `data/01_initial.json`, `data/02_update.json` (read-only, never modified) |
-
----
-
-## AI Approach
-
-- **No LLM calls** — all classification is rule-based using metadata and keyword matching.
-- **No fabricated content** — findings use only actual transcript passages with exact quotes.
-- **Deterministic routing** — same input always produces the same route suggestions.
-- Keyword-based routing examines `observed_outcome`, `is_campaign_call`, `is_conversation`, and transcript text for terms like "partner", "migration", "follow up".
-
----
-
-## Limitations
-
-1. **No NLP/ML** — routing uses keyword matching, not semantic understanding. Edge cases may be misclassified.
-2. **Single-user** — no authentication or multi-user support.
-3. **No real-time updates** — data must be imported manually via the Replay Panel.
-4. **SQLite concurrency** — WAL mode helps, but heavy concurrent writes are not tested.
-5. **No deployment** — designed for local use. Add deployment configuration if needed.
-
----
-
-## Hours Spent
-
-| Phase | Hours |
-|-------|-------|
-| Data inspection and understanding | ___ |
-| Architecture and design | ___ |
-| Implementation | ___ |
-| Testing and debugging | ___ |
-| Documentation | ___ |
-| **Total** | ___ |
-
-*Fill in your actual hours above before submission.*
+1. Open the **Import & Replay Controls** page.
+2. Click **Ingest 01_initial.json** → inserts all 44 records.
+3. Click **Ingest 01_initial.json** again → 0 inserted, 44 skipped (tests deduplication).
+4. Go to **Routing & Review** → apply an override to any record.
+5. Ingest **02_update.json** → updates M07 to revision 2, marks it `stale` for re-analysis, and preserves your manual override.
+6. Go to **Exports & Downloads** → download the complete ZIP bundle and verify `manifest.json`.
