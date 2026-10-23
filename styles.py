@@ -153,10 +153,27 @@ footer {visibility: hidden !important;}
     display: none !important;
     visibility: hidden !important;
 }
-header[data-testid="stHeader"], header {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0px !important;
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+
+/* Ensure the sidebar open/close toggle button is always visible and accessible */
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    color: #0f172a !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 99999 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-testid="collapsedControl"] svg {
+    fill: #0f172a !important;
+    stroke: #0f172a !important;
 }
 
 /* Sidebar Styling: Deep Navy Enterprise Fintech */
