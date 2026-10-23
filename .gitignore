@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Streamlit secrets (protect API keys)
+.streamlit/secrets.toml
+
+# SQLite local databases
+*.db
+*.db-shm
+*.db-wal
+
+# Pytest & IDE
+.pytest_cache/
+.vscode/
+.idea/
